@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Incident Copilot</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f4f6f9;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 600; letter-spacing: 0.02em; }
+    header a { font-size: 0.8rem; color: #94a3b8; text-decoration: none; }
+    header a:hover { color: #e2e8f0; }
+
+    main {
+      max-width: 780px;
+      margin: 36px auto;
+      padding: 0 16px 60px;
+    }
+
+    /* ── Query form ── */
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    textarea#query {
+      width: 100%;
+      min-height: 88px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      resize: vertical;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+    textarea#query:focus { border-color: #6366f1; }
+
+    .form-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.85rem;
+      color: #64748b;
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle-label input[type="checkbox"] {
+      width: 15px; height: 15px; cursor: pointer; accent-color: #6366f1;
+    }
+
+    button#submit {
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 26px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    button#submit:hover:not(:disabled) { background: #4f46e5; }
+    button#submit:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Guidance banner (non-incident query) ── */
+    #guidance-banner {
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 0.88rem;
+      color: #78350f;
+      margin-bottom: 18px;
+      line-height: 1.65;
+    }
+    #guidance-banner strong { display: block; margin-bottom: 6px; font-size: 0.92rem; }
+    #guidance-banner ul { margin: 0 0 0 18px; }
+    #guidance-banner li { margin-bottom: 3px; }
+
+    /* ── Error banner ── */
+    #error-box {
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: #b91c1c;
+      font-size: 0.88rem;
+      margin-bottom: 18px;
+    }
+
+    /* ── Answer ── */
+    .answer-text {
+      font-size: 0.97rem;
+      line-height: 1.7;
+      color: #1e293b;
+      white-space: pre-wrap;
+    }
+
+    /* ── Confidence badge ── */
+    .confidence-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .confidence-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .conf-high    { background: #dcfce7; color: #166534; }
+    .conf-medium  { background: #fef9c3; color: #854d0e; }
+    .conf-low     { background: #fee2e2; color: #991b1b; }
+    .conf-unknown { background: #f1f5f9; color: #64748b; }
+    .evidence-count {
+      font-size: 0.78rem;
+      color: #94a3b8;
+    }
+
+    /* ── No-data friendly message ── */
+    .no-data-msg {
+      font-size: 0.9rem;
+      color: #64748b;
+      line-height: 1.7;
+    }
+    .no-data-msg strong { color: #374151; }
+    .no-data-msg ul { margin: 8px 0 0 18px; }
+    .no-data-msg li { margin-bottom: 3px; }
+
+    /* ── Feedback ── */
+    .feedback-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid #f1f5f9;
+    }
+    .feedback-row span { font-size: 0.83rem; color: #94a3b8; }
+    .fb-btn {
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 6px 16px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .fb-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
+    .fb-btn.selected-good { background: #dcfce7; border-color: #86efac; }
+    .fb-btn.selected-bad  { background: #fee2e2; border-color: #fca5a5; }
+    #feedback-msg { font-size: 0.82rem; color: #22c55e; font-weight: 500; }
+    #feedback-msg.bad { color: #ef4444; }
+
+    /* ── Sources ── */
+    .sources-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #94a3b8;
+    }
+    #time-window-strip {
+      font-size: 0.73rem;
+      color: #64748b;
+      font-family: monospace;
+    }
+    /* Collapsible "All Retrieved Events" section */
+    details.all-events { margin-top: 14px; }
+    details.all-events > summary {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #94a3b8;
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 0 8px;
+      border-top: 1px solid #f1f5f9;
+    }
+    details.all-events > summary::before {
+      content: "▶";
+      font-size: 0.65rem;
+      transition: transform 0.15s;
+    }
+    details.all-events[open] > summary::before { transform: rotate(90deg); }
+    details.all-events > summary:hover { color: #475569; }
+    .source-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      font-size: 0.875rem;
+    }
+    .source-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    /* Incident event tags */
+    .tag {
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .tag-service { background: #ede9fe; color: #6d28d9; }
+    .tag-type    { background: #f0f9ff; color: #0369a1; }
+    .tag-ts      { background: #f0fdf4; color: #166534; font-family: monospace; font-size: 0.7rem; }
+    /* Severity */
+    .sev-CRITICAL { background: #fee2e2; color: #991b1b; }
+    .sev-ERROR    { background: #fed7aa; color: #9a3412; }
+    .sev-WARNING  { background: #fef9c3; color: #854d0e; }
+    .sev-INFO     { background: #dbeafe; color: #1e40af; }
+    /* Score pill */
+    .score-pill {
+      background: #ede9fe;
+      color: #6d28d9;
+      border-radius: 20px;
+      padding: 1px 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .source-content { color: #374151; line-height: 1.5; }
+
+    /* ── Debug panel ── */
+    details.debug-panel { margin-top: 8px; }
+    details.debug-panel summary {
+      font-size: 0.83rem;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      user-select: none;
+      padding: 4px 0;
+    }
+    details.debug-panel summary:hover { color: #1e293b; }
+    .debug-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .debug-stat {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+    .debug-stat .label { font-size: 0.72rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+    .debug-stat .value { font-size: 1.05rem; font-weight: 600; color: #1e293b; margin-top: 2px; }
+    .time-window-info {
+      margin-top: 14px;
+      background: #f0f9ff;
+      border-left: 3px solid #38bdf8;
+      padding: 8px 12px;
+      font-size: 0.83rem;
+      color: #0369a1;
+      border-radius: 0 6px 6px 0;
+    }
+    .time-window-info strong { color: #0c4a6e; }
+    .time-window-info code {
+      background: #e0f2fe;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-size: 0.78rem;
+      font-family: monospace;
+    }
+    .rewritten-query {
+      margin-top: 14px;
+      background: #fafafa;
+      border-left: 3px solid #6366f1;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      color: #475569;
+      border-radius: 0 6px 6px 0;
+    }
+    .rewritten-query strong { color: #1e293b; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>AI Incident Copilot</h1>
+  <a href="/docs" target="_blank">API docs ↗</a>
+</header>
+
+<main>
+
+  <!-- Query form -->
+  <div class="card">
+    <textarea id="query"
+      placeholder="Ask about a service incident — e.g. &quot;Why did payment-service fail in the last hour?&quot;"
+      rows="3"></textarea>
+    <div class="form-footer">
+      <label class="toggle-label">
+        <input type="checkbox" id="debug" />
+        Debug mode
+      </label>
+      <button id="submit">Ask</button>
+    </div>
+  </div>
+
+  <!-- Guidance banner — shown when query has no incident signal -->
+  <div id="guidance-banner" hidden>
+    <strong>This system analyzes system incidents.</strong>
+    Try queries like:
+    <ul>
+      <li>"Why did payment-service fail in the last hour?"</li>
+      <li>"What caused the pipeline failure yesterday?"</li>
+      <li>"Show critical alerts from order-service in the last 6 hours"</li>
+      <li>"What happened to auth-service last week?"</li>
+    </ul>
+  </div>
+
+  <!-- Error -->
+  <div id="error-box" hidden></div>
+
+  <!-- Answer card -->
+  <div id="answer-card" class="card" hidden>
+    <div id="confidence-row" class="confidence-row" hidden></div>
+    <div id="answer-text"></div>
+    <div class="feedback-row">
+      <span>Was this helpful?</span>
+      <button class="fb-btn" id="btn-good" title="Good answer">👍</button>
+      <button class="fb-btn" id="btn-bad"  title="Bad answer">👎</button>
+      <span id="feedback-msg"></span>
+    </div>
+  </div>
+
+  <!-- Incident events card — sources from incident_events table -->
+  <div id="sources-card" class="card" hidden>
+    <div class="sources-header">
+      <div class="section-title">Top Relevant Events</div>
+      <div id="time-window-strip"></div>
+    </div>
+    <div id="sources-list"></div>
+  </div>
+
+  <!-- Debug card -->
+  <div id="debug-card" class="card" hidden>
+    <details class="debug-panel" open>
+      <summary>Debug info</summary>
+      <div class="debug-grid" id="latency-grid"></div>
+      <div id="time-window-box" class="time-window-info" hidden></div>
+      <div id="rewritten-box" class="rewritten-query" hidden>
+        <strong>Rewritten query:</strong> <span id="rewritten-text"></span>
+      </div>
+    </details>
+  </div>
+
+</main>
+
+<script>
+"use strict";
+
+// ── State ──────────────────────────────────────────────────────────────────────
+
+let _lastQuery  = "";
+let _lastAnswer = "";
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+
+const elQuery      = document.getElementById("query");
+const elDebug      = document.getElementById("debug");
+const elSubmit     = document.getElementById("submit");
+const elGuidance   = document.getElementById("guidance-banner");
+const elError      = document.getElementById("error-box");
+const elAnswerCard = document.getElementById("answer-card");
+const elConfRow    = document.getElementById("confidence-row");
+const elAnswerText = document.getElementById("answer-text");
+const elSourceCard = document.getElementById("sources-card");
+const elSourceList = document.getElementById("sources-list");
+const elTwStrip    = document.getElementById("time-window-strip");
+const elDebugCard  = document.getElementById("debug-card");
+const elLatGrid    = document.getElementById("latency-grid");
+const elTwBox      = document.getElementById("time-window-box");
+const elRewBox     = document.getElementById("rewritten-box");
+const elRewText    = document.getElementById("rewritten-text");
+const elBtnGood    = document.getElementById("btn-good");
+const elBtnBad     = document.getElementById("btn-bad");
+const elFbMsg      = document.getElementById("feedback-msg");
+
+// ── Incident query validation ─────────────────────────────────────────────────
+// Matches any term that suggests an incident-related query.
+// Intentionally broad — only queries with ZERO matches are flagged.
+
+const INCIDENT_RE = /\b(service|error|fail(ure|ed|ing)?|down|crash|timeout|latency|slow|deploy(ment)?|pipeline|alert|log|incident|outage|issue|spike|bug|exception|warn(ing)?|critical|payment|order|auth|gateway|api|notification|inventory|database|db|connection|pool|queue|cpu|memory|disk|network|request|response|k8s|kubernetes|docker|pod|container|server|node|monitor|alarm|anomaly|metric|event|health|trace|system)\b/i;
+const TIME_RE     = /\b(last|past)\s+(\d+\s+)?(hour|minute|day|week|month)s?\b|\byesterday\b|\btoday\b|\brecently\b/i;
+
+function isIncidentQuery(q) {
+  return INCIDENT_RE.test(q) || TIME_RE.test(q);
+}
+
+// ── Backend "no data" sentinel responses ──────────────────────────────────────
+
+const NO_DATA_PREFIXES = [
+  "No incident data found",
+  "No sufficient data",
+  "Unable to process incident",
+  "LLM unavailable",
+  "I don't have enough incident data",
+];
+
+// Threshold below which a rerank score is considered "weak signal".
+const RERANK_THRESHOLD = -2.0;
+
+function isNoDataResponse(answer) {
+  return NO_DATA_PREFIXES.some(p => answer.startsWith(p));
+}
+
+// ── Submit ────────────────────────────────────────────────────────────────────
+
+elSubmit.addEventListener("click", ask);
+elQuery.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) ask();
+});
+
+async function ask() {
+  const query = elQuery.value.trim();
+  if (!query) { elQuery.focus(); return; }
+
+  // Reset all output areas.
+  hide(elGuidance);
+  hide(elError);
+  hide(elAnswerCard);
+  hide(elConfRow);
+  hide(elSourceCard);
+  hide(elDebugCard);
+  resetFeedback();
+
+  // Guard: if query has no incident signal, show guidance and bail out.
+  if (!isIncidentQuery(query)) {
+    show(elGuidance);
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const res = await fetch("/incidents/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, debug: elDebug.checked }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Request failed" }));
+      showError(err.detail || err.error || `HTTP ${res.status}`);
+      return;
+    }
+
+    const data = await res.json();
+    _lastQuery  = query;
+    _lastAnswer = data.answer;
+
+    renderAnswer(data);
+    renderSources(data.sources || [], data.time_window);
+    if (elDebug.checked) renderDebug(data);
+
+  } catch (err) {
+    showError("Network error — is the API running?");
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+function renderAnswer(data) {
+  // ── Confidence badge ──────────────────────────────────────────────────────
+  const BADGES = {
+    high:    { dot: "🟢", cls: "conf-high",    label: "High confidence"    },
+    medium:  { dot: "🟡", cls: "conf-medium",  label: "Medium confidence"  },
+    low:     { dot: "🔴", cls: "conf-low",     label: "Low confidence"     },
+    unknown: { dot: "⚪", cls: "conf-unknown", label: "Confidence unknown" },
+  };
+  const b = BADGES[data.confidence];
+  const sourceCount = (data.sources || []).length;
+
+  if (b && data.confidence !== "none") {
+    const countHtml = sourceCount > 0
+      ? `<span class="evidence-count">Based on ${sourceCount} incident event${sourceCount !== 1 ? "s" : ""}</span>`
+      : "";
+    elConfRow.innerHTML =
+      `<span class="confidence-badge ${b.cls}">${b.dot} ${b.label}</span>${countHtml}`;
+    show(elConfRow);
+  } else {
+    hide(elConfRow);
+  }
+
+  // ── Answer text ───────────────────────────────────────────────────────────
+  if (isNoDataResponse(data.answer)) {
+    elAnswerText.innerHTML = `
+      <div class="no-data-msg">
+        <strong>No relevant incident data found</strong> for this query and time window.
+        <ul>
+          <li>Broaden the time range — e.g. "in the last 6 hours" or "last week"</li>
+          <li>Include a service name — e.g. "payment-service", "order-service"</li>
+          <li>Use incident keywords — "error", "failure", "alert", "timeout"</li>
+        </ul>
+      </div>`;
+  } else {
+    elAnswerText.innerHTML = `<p class="answer-text">${escHtml(data.answer)}</p>`;
+  }
+  show(elAnswerCard);
+}
+
+function renderSources(sources, timeWindow) {
+  if (!sources.length) { hide(elSourceCard); return; }
+
+  if (timeWindow) {
+    elTwStrip.textContent = `${fmtTs(timeWindow.start)}  →  ${fmtTs(timeWindow.end)}`;
+  }
+
+  // Split into top-relevant (above threshold or no score) and weak-signal hits.
+  const topHits  = sources.filter(s => s.rerank_score == null || s.rerank_score > RERANK_THRESHOLD);
+  const weakHits = sources.filter(s => s.rerank_score != null && s.rerank_score <= RERANK_THRESHOLD);
+
+  function sourceCardHtml(s) {
+    const score = s.rerank_score != null
+      ? `rerank: ${s.rerank_score.toFixed(3)}`
+      : `sim: ${s.similarity_score.toFixed(4)}`;
+    const sevUpper = s.severity ? s.severity.toUpperCase() : "";
+    const sevTag   = sevUpper
+      ? `<span class="tag sev-${sevUpper}">${escHtml(sevUpper)}</span>`
+      : "";
+    return `
+      <div class="source-card">
+        <div class="source-meta">
+          <span class="tag tag-service">${escHtml(s.service)}</span>
+          <span class="tag tag-type">${escHtml(s.event_type)}</span>
+          ${sevTag}
+          <span class="tag tag-ts">${fmtTs(s.occurred_at)}</span>
+          <span class="score-pill">${score}</span>
+        </div>
+        <div class="source-content">${escHtml(s.content)}</div>
+      </div>`;
+  }
+
+  let html = topHits.map(sourceCardHtml).join("");
+
+  if (weakHits.length > 0) {
+    html += `
+      <details class="all-events">
+        <summary>All Retrieved Events <span style="font-weight:400;text-transform:none;letter-spacing:0">(${weakHits.length} below threshold)</span></summary>
+        ${weakHits.map(sourceCardHtml).join("")}
+      </details>`;
+  }
+
+  elSourceList.innerHTML = html;
+  show(elSourceCard);
+}
+
+function renderDebug(data) {
+  elLatGrid.innerHTML = "";
+
+  // Event count.
+  elLatGrid.innerHTML += statCell("Events", (data.sources || []).length);
+
+  // Per-stage latency.
+  if (data.latency) {
+    const steps = [
+      ["Retrieve", data.latency.retrieve],
+      ["Rerank",   data.latency.rerank],
+      ["LLM",      data.latency.llm],
+      ["Total",    data.latency.total],
+    ];
+    for (const [label, val] of steps) {
+      if (val == null) continue;
+      elLatGrid.innerHTML += statCell(label, `${val.toFixed(3)}s`);
+    }
+  }
+
+  // Time window in debug panel.
+  if (data.time_window) {
+    elTwBox.innerHTML =
+      `<strong>Time window:</strong> ` +
+      `<code>${fmtTs(data.time_window.start)}</code> → ` +
+      `<code>${fmtTs(data.time_window.end)}</code>`;
+    show(elTwBox);
+  } else {
+    hide(elTwBox);
+  }
+
+  // Rewritten query.
+  if (data.rewritten_query) {
+    elRewText.textContent = data.rewritten_query;
+    show(elRewBox);
+  } else {
+    hide(elRewBox);
+  }
+
+  show(elDebugCard);
+}
+
+function statCell(label, value) {
+  return `<div class="debug-stat">
+    <div class="label">${label}</div>
+    <div class="value">${value}</div>
+  </div>`;
+}
+
+// ── Feedback ──────────────────────────────────────────────────────────────────
+
+elBtnGood.addEventListener("click", () => submitFeedback("good"));
+elBtnBad.addEventListener("click",  () => submitFeedback("bad"));
+
+async function submitFeedback(rating) {
+  if (!_lastQuery) return;
+
+  elBtnGood.disabled = true;
+  elBtnBad.disabled  = true;
+  elBtnGood.classList.remove("selected-good");
+  elBtnBad.classList.remove("selected-bad");
+  if (rating === "good") elBtnGood.classList.add("selected-good");
+  else                   elBtnBad.classList.add("selected-bad");
+
+  try {
+    await fetch("/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: _lastQuery, answer: _lastAnswer, rating }),
+    });
+    elFbMsg.textContent = rating === "good" ? "Thanks for the feedback! 🎉" : "Thanks — we'll improve!";
+    elFbMsg.className   = rating === "good" ? "" : "bad";
+  } catch (_) {
+    elFbMsg.textContent = "Could not send feedback.";
+    elFbMsg.className   = "bad";
+  }
+}
+
+function resetFeedback() {
+  elBtnGood.disabled = false;
+  elBtnBad.disabled  = false;
+  elBtnGood.classList.remove("selected-good");
+  elBtnBad.classList.remove("selected-bad");
+  elFbMsg.textContent = "";
+  elFbMsg.className   = "";
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function setLoading(on) {
+  elSubmit.disabled  = on;
+  elSubmit.innerHTML = on ? '<span class="spinner"></span>Thinking…' : "Ask";
+}
+
+function showError(msg) {
+  elError.textContent = msg;
+  show(elError);
+}
+
+function show(el) { el.hidden = false; }
+function hide(el) { el.hidden = true;  }
+
+function escHtml(str) {
+  if (!str) return "";
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// "2026-04-15T10:30:00+00:00" or "2026-04-15T10:30:00Z" → "2026-04-15 10:30:00Z"
+function fmtTs(iso) {
+  if (!iso) return "";
+  return iso.replace("T", " ").replace(/\.\d+/, "").replace(/[+-]\d{2}:\d{2}$/, "Z");
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,15 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.git
+.gitignore
+tests/
+.env
+# Build / CI files not needed at runtime
+.github/
+scripts/
+docker-compose.yml
+pyproject.toml
+*.md

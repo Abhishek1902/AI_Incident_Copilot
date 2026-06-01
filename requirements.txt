@@ -1,0 +1,21 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+sqlalchemy==2.0.35
+alembic==1.13.3
+psycopg2-binary==2.9.9
+pgvector==0.3.2
+sentence-transformers==3.1.1
+pydantic-settings==2.5.2
+python-dotenv==1.0.1
+openai==2.30.0
+
+# ── PyTorch / NumPy ────────────────────────────────────────────────────────────
+# On ARM64 Python (Apple Silicon / Linux aarch64), pip selects the matching
+# native wheel automatically (no CUDA, uses Apple Accelerate on macOS).
+# DO NOT install from an x86_64 Python on Apple Silicon — see README.
+torch==2.11.0
+numpy==1.26.4
+
+# ── Testing ─────────────────────────────────────────────────────────────────────
+pytest==9.0.2
+httpx==0.28.1     # required by FastAPI TestClient (starlette >= 0.37)
