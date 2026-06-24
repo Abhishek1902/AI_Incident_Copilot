@@ -31,3 +31,6 @@ env/
 *.sqlite
 *.sqlite3
 pgdata/
+
+# ── Eval run output (per-run results, varies between runs) ──────────────────
+evals/eval_results.json

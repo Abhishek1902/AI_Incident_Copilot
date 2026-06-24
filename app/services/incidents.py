@@ -40,6 +40,8 @@ class IncidentSearchHit:
 
     Attributes:
         id:               Primary key of the incident_events row.
+        event_id:         SHA-256 dedup hash. Stable across reseeds; preferred
+                          identifier for external systems (e.g. eval ground-truth).
         content:          Raw log/event text as stored (verbatim).
         occurred_at:      Timezone-aware UTC timestamp of the event.
         service:          Service that emitted this event.
@@ -51,6 +53,7 @@ class IncidentSearchHit:
     """
 
     id: int
+    event_id: str
     content: str
     occurred_at: datetime
     service: str
@@ -269,6 +272,7 @@ def search_incidents(
     hits = [
         IncidentSearchHit(
             id=event.id,
+            event_id=event.event_id,
             content=event.content,
             occurred_at=event.occurred_at,
             service=event.service,

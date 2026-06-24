@@ -150,6 +150,9 @@ class IncidentSource(BaseModel):
     """A single incident event returned as a source in the answer."""
 
     id: int
+    # SHA-256 dedup hash from incident_events.event_id. Stable across reseeds —
+    # preferred identifier for eval / external integrations (vs the volatile PK).
+    event_id: str
     content: str
     occurred_at: datetime
     service: str
@@ -239,6 +242,7 @@ def incident_ask(payload: IncidentAskRequest, db: Session = Depends(get_db)):
     sources = [
         IncidentSource(
             id=hit.id,
+            event_id=hit.event_id,
             content=hit.content,
             occurred_at=hit.occurred_at,
             service=hit.service,

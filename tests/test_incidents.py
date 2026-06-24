@@ -44,6 +44,7 @@ def client():
 
 def _make_hit(
     id: int = 1,
+    event_id: str = "0" * 64,
     content: str = "ERROR connection timeout",
     service: str = "payment-service",
     event_type: str = "log",
@@ -55,6 +56,7 @@ def _make_hit(
 ) -> IncidentSearchHit:
     return IncidentSearchHit(
         id=id,
+        event_id=event_id,
         content=content,
         occurred_at=occurred_at or datetime(2026, 3, 15, 10, 5, 0, tzinfo=timezone.utc),
         service=service,

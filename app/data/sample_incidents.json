@@ -73,6 +73,136 @@
       "content": "2026-03-15T10:14:00Z [payment-service] pid=4450 INFO service healthy — connection pool normal (pool_used=12/100)",
       "correlation_id": "inc-2026-03-15-001",
       "metadata": { "pool_used": 12, "pool_max": 100, "version": "2.3.0" }
+    },
+
+    {
+      "service": "checkout-service",
+      "occurred_at": "2026-04-10T14:02:30Z",
+      "severity": "warn",
+      "content": "2026-04-10T14:02:30Z [checkout-service] pid=8821 WARN cache hit ratio dropped to 0.0% (was 92.4%) — all reads hitting DB after deploy",
+      "correlation_id": "inc-2026-04-10-001",
+      "metadata": { "cache_hit_ratio": 0.0, "previous_ratio": 0.924, "version": "3.1.0" }
+    },
+    {
+      "service": "checkout-service",
+      "occurred_at": "2026-04-10T14:04:15Z",
+      "severity": "error",
+      "content": "2026-04-10T14:04:15Z [checkout-service] pid=8821 ERROR DB query latency p95=2.4s (baseline 80ms) — checkout reads bypassing cache, products table under sustained load",
+      "correlation_id": "inc-2026-04-10-001",
+      "metadata": { "p95_latency_ms": 2400, "baseline_ms": 80, "version": "3.1.0" }
+    },
+    {
+      "service": "checkout-service",
+      "occurred_at": "2026-04-10T14:05:30Z",
+      "severity": "error",
+      "content": "2026-04-10T14:05:30Z [checkout-service] pid=8823 ERROR request timeout after 5s: DB pool saturated waiting for connection (in_use=50/50)",
+      "correlation_id": "inc-2026-04-10-001",
+      "metadata": { "timeout_ms": 5000, "pool_in_use": 50, "pool_max": 50, "version": "3.1.0" }
+    },
+    {
+      "service": "checkout-service",
+      "occurred_at": "2026-04-10T14:08:00Z",
+      "severity": "critical",
+      "content": "2026-04-10T14:08:00Z [checkout-service] pid=8821 CRITICAL sustained request failures — 47% of checkout requests returning 5xx, DB cannot keep up with cache-miss traffic",
+      "correlation_id": "inc-2026-04-10-001",
+      "metadata": { "error_rate_pct": 47, "window_seconds": 60, "version": "3.1.0" }
+    },
+    {
+      "service": "checkout-service",
+      "occurred_at": "2026-04-10T14:15:00Z",
+      "severity": "info",
+      "content": "2026-04-10T14:15:00Z [checkout-service] pid=9012 INFO service recovered — cache hit ratio back to 91.7%, p95 latency 86ms, error rate 0.2%",
+      "correlation_id": "inc-2026-04-10-001",
+      "metadata": { "cache_hit_ratio": 0.917, "p95_latency_ms": 86, "error_rate_pct": 0.2, "version": "3.0.4" }
+    },
+
+    {
+      "service": "inventory-service",
+      "occurred_at": "2026-05-22T09:30:00Z",
+      "severity": "warn",
+      "content": "2026-05-22T09:30:00Z [inventory-service] pid=3301 WARN DB query latency p95 spiked to 4.2s on inventory.products (baseline 120ms) — query planner using seq scan instead of idx_products_sku",
+      "correlation_id": "inc-2026-05-22-001",
+      "metadata": { "p95_latency_ms": 4200, "baseline_ms": 120, "table": "inventory.products", "expected_index": "idx_products_sku" }
+    },
+    {
+      "service": "inventory-service",
+      "occurred_at": "2026-05-22T09:31:30Z",
+      "severity": "error",
+      "content": "2026-05-22T09:31:30Z [inventory-service] pid=3301 ERROR stock-check queries timing out at 5s — 23 concurrent requests queued, pg_stat_activity shows seq scans on inventory.products",
+      "correlation_id": "inc-2026-05-22-001",
+      "metadata": { "timeout_ms": 5000, "queued_requests": 23, "table": "inventory.products" }
+    },
+    {
+      "service": "order-service",
+      "occurred_at": "2026-05-22T09:33:00Z",
+      "severity": "error",
+      "content": "2026-05-22T09:33:00Z [order-service] pid=5512 ERROR downstream call to inventory-service /stock-check timed out after 5s (attempt 1/3)",
+      "correlation_id": "inc-2026-05-22-001",
+      "metadata": { "downstream": "inventory-service", "endpoint": "/stock-check", "attempt": 1, "max_attempts": 3, "timeout_ms": 5000 }
+    },
+    {
+      "service": "order-service",
+      "occurred_at": "2026-05-22T09:34:30Z",
+      "severity": "error",
+      "content": "2026-05-22T09:34:30Z [order-service] pid=5512 ERROR downstream call to inventory-service /stock-check timed out after 5s (attempt 2/3)",
+      "correlation_id": "inc-2026-05-22-001",
+      "metadata": { "downstream": "inventory-service", "endpoint": "/stock-check", "attempt": 2, "max_attempts": 3, "timeout_ms": 5000 }
+    },
+    {
+      "service": "order-service",
+      "occurred_at": "2026-05-22T09:36:00Z",
+      "severity": "critical",
+      "content": "2026-05-22T09:36:00Z [order-service] pid=5512 CRITICAL inventory-service unavailable after 3 retries — rejecting new orders with 503, 47 orders queued",
+      "correlation_id": "inc-2026-05-22-001",
+      "metadata": { "downstream": "inventory-service", "attempts_exhausted": 3, "queued_orders": 47, "http_status": 503 }
+    },
+    {
+      "service": "notification-service",
+      "occurred_at": "2026-05-22T09:37:30Z",
+      "severity": "error",
+      "content": "2026-05-22T09:37:30Z [notification-service] pid=7720 ERROR cannot send order-confirmation emails — order-service /orders/{id} returning 503 (47 confirmations pending)",
+      "correlation_id": "inc-2026-05-22-001",
+      "metadata": { "depends_on": "order-service", "endpoint": "/orders/{id}", "http_status": 503, "pending_confirmations": 47 }
+    },
+    {
+      "service": "notification-service",
+      "occurred_at": "2026-05-22T09:39:00Z",
+      "severity": "warn",
+      "content": "2026-05-22T09:39:00Z [notification-service] pid=7720 WARN notification queue backing up — 312 messages pending (normal: <50), oldest waiting 2m13s",
+      "correlation_id": "inc-2026-05-22-001",
+      "metadata": { "queue_depth": 312, "normal_depth": 50, "oldest_message_age_s": 133 }
+    },
+    {
+      "service": "inventory-service",
+      "occurred_at": "2026-05-22T09:42:30Z",
+      "severity": "info",
+      "content": "2026-05-22T09:42:30Z [inventory-service] pid=3301 INFO DBA running ANALYZE on inventory.products to refresh planner statistics — pg_stats was stale",
+      "correlation_id": "inc-2026-05-22-001",
+      "metadata": { "action": "ANALYZE", "table": "inventory.products", "triggered_by": "dba-oncall" }
+    },
+    {
+      "service": "inventory-service",
+      "occurred_at": "2026-05-22T09:44:00Z",
+      "severity": "info",
+      "content": "2026-05-22T09:44:00Z [inventory-service] pid=3301 INFO query plan refreshed after ANALYZE — idx_products_sku now used, p95 latency back to 130ms",
+      "correlation_id": "inc-2026-05-22-001",
+      "metadata": { "p95_latency_ms": 130, "table": "inventory.products", "fix": "ANALYZE refreshed planner stats" }
+    },
+    {
+      "service": "order-service",
+      "occurred_at": "2026-05-22T09:46:00Z",
+      "severity": "info",
+      "content": "2026-05-22T09:46:00Z [order-service] pid=5512 INFO inventory-service responding normally — processing queued orders (47 → 0 over 90s)",
+      "correlation_id": "inc-2026-05-22-001",
+      "metadata": { "downstream": "inventory-service", "queue_drained_s": 90, "orders_processed": 47 }
+    },
+    {
+      "service": "notification-service",
+      "occurred_at": "2026-05-22T09:48:00Z",
+      "severity": "info",
+      "content": "2026-05-22T09:48:00Z [notification-service] pid=7720 INFO notification queue drained — all 312 confirmations sent, queue depth 18 (normal)",
+      "correlation_id": "inc-2026-05-22-001",
+      "metadata": { "queue_depth": 18, "drained_count": 312, "status": "recovered" }
     }
   ],
 
@@ -163,6 +293,111 @@
         "deploy_id": "deploy-7822",
         "replicas_updated": 3,
         "health_check": "passed"
+      }
+    },
+
+    {
+      "service": "checkout-service",
+      "event_type": "deployment",
+      "occurred_at": "2026-04-10T14:00:00Z",
+      "severity": "info",
+      "content": "Deployment started: checkout-service v3.1.0 — config change: response cache TTL reduced from 3600s to 0s (cache effectively disabled, intended to test fresh-read latency)",
+      "correlation_id": "inc-2026-04-10-001",
+      "metadata": {
+        "version_from": "3.0.4",
+        "version_to": "3.1.0",
+        "deploy_id": "deploy-9104",
+        "changed_config": "cache.response_ttl_seconds",
+        "old_value": "3600",
+        "new_value": "0",
+        "deployed_by": "ci-pipeline"
+      }
+    },
+    {
+      "service": "checkout-service",
+      "event_type": "deployment",
+      "occurred_at": "2026-04-10T14:01:30Z",
+      "severity": "info",
+      "content": "Deployment completed: checkout-service v3.1.0 — 4 replicas updated, health checks passed",
+      "correlation_id": "inc-2026-04-10-001",
+      "metadata": {
+        "version": "3.1.0",
+        "deploy_id": "deploy-9104",
+        "replicas_updated": 4,
+        "health_check": "passed"
+      }
+    },
+    {
+      "service": "checkout-service",
+      "event_type": "alert",
+      "occurred_at": "2026-04-10T14:06:00Z",
+      "severity": "critical",
+      "content": "Alert fired: checkout-service error rate exceeded threshold — 5xx rate 28% over last 60s (threshold: 3%)",
+      "correlation_id": "inc-2026-04-10-001",
+      "metadata": {
+        "alert_name": "high_error_rate",
+        "threshold_pct": 3,
+        "error_rate_pct": 28,
+        "window_seconds": 60
+      }
+    },
+    {
+      "service": "checkout-service",
+      "event_type": "deployment",
+      "occurred_at": "2026-04-10T14:10:00Z",
+      "severity": "warn",
+      "content": "Rollback initiated: checkout-service v3.1.0 → v3.0.4 — triggered by on-call engineer after high_error_rate alert",
+      "correlation_id": "inc-2026-04-10-001",
+      "metadata": {
+        "version_from": "3.1.0",
+        "version_to": "3.0.4",
+        "deploy_id": "deploy-9105",
+        "triggered_by": "oncall-engineer",
+        "reason": "high_error_rate"
+      }
+    },
+    {
+      "service": "checkout-service",
+      "event_type": "deployment",
+      "occurred_at": "2026-04-10T14:12:30Z",
+      "severity": "info",
+      "content": "Rollback complete: checkout-service v3.0.4 deployed — 4 replicas updated, health checks passed",
+      "correlation_id": "inc-2026-04-10-001",
+      "metadata": {
+        "version": "3.0.4",
+        "deploy_id": "deploy-9105",
+        "replicas_updated": 4,
+        "health_check": "passed"
+      }
+    },
+
+    {
+      "service": "order-service",
+      "event_type": "alert",
+      "occurred_at": "2026-05-22T09:40:00Z",
+      "severity": "critical",
+      "content": "Alert fired: order-service SLA breach — checkout-success rate dropped to 11% over last 3 minutes (SLA: 99%)",
+      "correlation_id": "inc-2026-05-22-001",
+      "metadata": {
+        "alert_name": "sla_breach",
+        "alert_metric": "checkout_success_rate_pct",
+        "threshold_pct": 99,
+        "observed_pct": 11,
+        "window_seconds": 180
+      }
+    },
+    {
+      "service": "order-service",
+      "event_type": "alert",
+      "occurred_at": "2026-05-22T09:41:00Z",
+      "severity": "critical",
+      "content": "Alert fired: order-service error rate exceeded threshold — 5xx rate 89% over last 60s (threshold: 5%)",
+      "correlation_id": "inc-2026-05-22-001",
+      "metadata": {
+        "alert_name": "high_error_rate",
+        "threshold_pct": 5,
+        "error_rate_pct": 89,
+        "window_seconds": 60
       }
     }
   ],
