@@ -121,7 +121,8 @@ app/
     └── query_logger.py        background analytics logging to query_logs
 
 alembic/versions/              schema migrations (incident_events, HNSW index, etc.)
-tests/                         233 tests — all mocked, no external services required
+tests/                         267 tests — all mocked, no external services required
+evals/                         eval_set.jsonl + metrics.py + runner.py — end-to-end retrieval quality
 frontend/index.html            browser UI served at GET /ui
 Dockerfile                     python:3.11-slim, CPU-only torch, non-root appuser
 docker-compose.yml             PostgreSQL + pgvector + FastAPI
@@ -511,14 +512,14 @@ push to main
 
 ```bash
 pytest tests/ -v
-# 233 passed
+# 267 passed
 ```
 
 ---
 
 ## Testing
 
-All 233 tests run without a real database or OpenAI key. The test suite covers:
+All 267 tests run without a real database or OpenAI key. The test suite covers:
 
 | Module | What's tested |
 |---|---|
@@ -529,8 +530,50 @@ All 233 tests run without a real database or OpenAI key. The test suite covers:
 | `test_query_processor.py` | `classify_query`, `process_query`, time-window and service extraction |
 | `test_evaluator.py` | `evaluate_answer`, `_parse_eval_response` |
 | `test_feedback_analytics.py` | `/feedback`, `/analytics/summary` |
+| `test_eval_metrics.py` | `normalize_event_id`, `recall_at_k`, `mrr`, `refusal_correct`, plus format-bridge integration tests |
 
 CI environment variables (`OPENAI_API_KEY=test-key-for-ci`, `DATABASE_URL=postgresql://test:test@localhost:5432/testdb`) satisfy pydantic-settings validation without making real requests.
+
+---
+
+## Evaluation
+
+Unit tests cover code correctness; the eval harness scores end-to-end **retrieval and refusal quality** against a hand-graded set of questions over the synthetic incident corpus.
+
+- [`evals/eval_set.jsonl`](evals/eval_set.jsonl) — 31 questions across 5 categories (lookup, multi-hop, temporal, no-answer, ambiguous), each grounded against specific event IDs via stable SHA-256 prefixes (`evt_<12-hex>`).
+- [`evals/metrics.py`](evals/metrics.py) — `recall_at_k`, `mrr`, `refusal_correct`, plus `normalize_event_id` that bridges the eval-set ID form and the API's full 64-char `event_id` form into a common namespace.
+- [`evals/runner.py`](evals/runner.py) — loops the eval set against the live API, scores by category, prints a summary table, and writes per-question details to `eval_results.json` (gitignored).
+
+### Current baseline ([EVAL.md](EVAL.md)) — 2026-06-24
+
+31 questions: **16 scored · 15 deferred · 0 errored**
+
+| Category    | n  | recall@5   | MRR        | refusal  |
+|-------------|----|------------|------------|----------|
+| lookup      | 7  | **1.000**  | **1.000**  | —        |
+| multi-hop   | 6  | 0.333      | 0.783      | —        |
+| no-answer\* | 3  | —          | —          | **1.00** |
+| temporal    | 6  | *deferred* | *deferred* | —        |
+| ambiguous   | 6  | *deferred* | *deferred* | —        |
+| **overall** | 16 | **0.692**  | **0.900**  | **1.00** |
+
+\* 3 of 6 no-answer questions scored (`q004`, `q022`, `q025`). The other 3 are deferred to v2 — `q023` / `q026` (empty time windows) plus `q024` (topic refusal in a populated window — needs an LLM-output refusal metric, not a retrieval-emptiness one). Temporal and ambiguous categories need different rubrics (precision metric for temporal; per-interpretation scoring for ambiguous). See [EVAL.md](EVAL.md) for findings, deferred categories, and v2 targets.
+
+**Latency (scored only):** p50 = 1.9s · p95 = 9.5s (first call cold-loads the reranker; subsequent calls run 1–4s).
+
+**Headline finding:** lookup is solved (recall@5 = 1.000 across 7 questions); multi-hop is the gap (recall@5 = 0.333 across 6 chain-traversal questions). The reranker grabs the closest semantic match and stops — it doesn't traverse causal chains. v2 will exercise iterative or chain-aware retrieval.
+
+### Reproduce
+
+```bash
+docker compose up -d db
+alembic upgrade head
+python scripts/seed.py
+uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+python -m evals.runner
+```
+
+Compare the resulting `evals/eval_results.json` `aggregates` block against [EVAL.md](EVAL.md). Drift > ~0.02 in recall or MRR is worth investigating.
 
 ---
 
